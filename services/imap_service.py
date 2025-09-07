@@ -131,14 +131,14 @@ class IMAPService:
                 client.login(self.user, self.password)
                 logger.info(f"Connected to IMAP server as {self.user}")
                 
-                # For Gmail, we need to search in All Mail with label filter
+                # For Gmail, search in All Mail to find archived emails too
                 if 'gmail' in self.host.lower():
-                    # Gmail-specific: use [Gmail]/All Mail folder
+                    # Gmail: search in All Mail folder for comprehensive search
                     try:
                         client.select_folder('[Gmail]/All Mail', readonly=True)
-                        logger.info(f"Selected [Gmail]/All Mail for Gmail label search")
+                        logger.info(f"Selected [Gmail]/All Mail for comprehensive search")
                     except:
-                        # Fallback for different language Gmail
+                        # Fallback to INBOX if All Mail not found
                         client.select_folder('INBOX', readonly=True)
                         logger.info(f"Using INBOX as fallback")
                 else:
@@ -147,12 +147,21 @@ class IMAPService:
                     logger.info(f"Selected folder: {self.folder or 'INBOX'}")
                 
                 # Search for emails
-                if 'gmail' in self.host.lower() and self.folder:
+                if 'gmail' in self.host.lower():
                     # For Gmail, search emails specifically from noresponder@idealista.com
-                    # This is the official Idealista mailing list with property listings
-                    from_search = 'from:noresponder@idealista.com'
-                    uids = client.gmail_search(from_search)
-                    logger.info(f"Gmail search from 'noresponder@idealista.com': found {len(uids)} emails")
+                    # First, let's see all emails in the folder
+                    all_uids = client.search(['ALL'])
+                    logger.info(f"Total emails in [Gmail]/All Mail: {len(all_uids)}")
+                    
+                    # Now search for noresponder@idealista.com
+                    uids = client.search(['FROM', 'noresponder@idealista.com'])
+                    logger.info(f"IMAP search for noresponder@idealista.com: found {len(uids)} emails")
+                    
+                    # If no emails found, try a broader search
+                    if len(uids) == 0:
+                        logger.info("Trying broader search for idealista.com domain")
+                        uids = client.search(['FROM', 'idealista.com'])
+                        logger.info(f"IMAP search for idealista.com domain: found {len(uids)} emails")
                 elif self.search_query == "ALL":
                     # Get all UIDs
                     uids = client.search(['ALL'])
