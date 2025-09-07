@@ -1,0 +1,311 @@
+{% extends "base.html" %}
+
+{% block title %}{{ land.title }} - Idealista Land Watch{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12 mb-3">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item">
+                    <a href="{{ url_for('main.lands') }}">Properties</a>
+                </li>
+                <li class="breadcrumb-item active">{{ land.title[:50] }}{% if land.title|length > 50 %}...{% endif %}</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Main Info -->
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h2 class="card-title mb-0">{{ land.title }}</h2>
+                {% if land.score_total %}
+                    <span class="badge score-badge fs-5" 
+                          style="background-color: {{ 'var(--bs-success)' if land.score_total >= 70 else 'var(--bs-warning)' if land.score_total >= 50 else 'var(--bs-danger)' }}">
+                        Score: {{ "%.1f"|format(land.score_total) }}
+                    </span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                <!-- Basic Info -->
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <strong>Price:</strong><br>
+                        {% if land.price %}
+                            <span class="fs-4 text-success">{{ "{:,.0f}".format(land.price) }}€</span>
+                        {% else %}
+                            <span class="text-muted">Not specified</span>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Area:</strong><br>
+                        {% if land.area %}
+                            <span class="fs-5">{{ "{:,.0f}".format(land.area) }} m²</span>
+                        {% else %}
+                            <span class="text-muted">Not specified</span>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Municipality:</strong><br>
+                        <span class="fs-6">{{ land.municipality or 'Unknown' }}</span>
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Type:</strong><br>
+                        {% if land.land_type %}
+                            <span class="badge {{ 'bg-success' if land.land_type == 'developed' else 'bg-warning' }} fs-6">
+                                {{ land.land_type.title() }}
+                            </span>
+                        {% else %}
+                            <span class="text-muted">Unknown</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Location -->
+                {% if land.location_lat and land.location_lon %}
+                    <div class="mb-4">
+                        <strong>Location:</strong><br>
+                        <i class="fas fa-map-marker-alt me-2"></i>
+                        {{ "%.6f"|format(land.location_lat) }}, {{ "%.6f"|format(land.location_lon) }}
+                        <a href="https://www.google.com/maps/@{{ land.location_lat }},{{ land.location_lon }},15z" 
+                           target="_blank" class="btn btn-sm btn-outline-primary ms-2">
+                            <i class="fas fa-external-link-alt me-1"></i>View on Maps
+                        </a>
+                    </div>
+                {% endif %}
+
+                <!-- Description -->
+                {% if land.description %}
+                    <div class="mb-4">
+                        <strong>Description:</strong>
+                        <div class="mt-2 p-3 bg-dark rounded">
+                            {{ land.description }}
+                        </div>
+                    </div>
+                {% endif %}
+
+                <!-- Actions -->
+                <div class="mt-4">
+                    {% if land.url %}
+                        <a href="{{ land.url }}" target="_blank" class="btn btn-success">
+                            <i class="fas fa-external-link-alt me-2"></i>
+                            View Original Listing
+                        </a>
+                    {% endif %}
+                    <a href="{{ url_for('main.lands') }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>
+                        Back to Properties
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Score Breakdown -->
+        {% if score_breakdown %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>Score Breakdown
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for criteria, score in score_breakdown.items() %}
+                            {% if score is not none %}
+                                <div class="col-md-6 mb-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span class="fw-bold">{{ criteria.replace('_', ' ').title() }}</span>
+                                        <span class="badge bg-secondary">{{ "%.1f"|format(score) }}</span>
+                                    </div>
+                                    <div class="progress">
+                                        <div class="progress-bar" 
+                                             style="width: {{ score }}%; background-color: {{ 'var(--bs-success)' if score >= 70 else 'var(--bs-warning)' if score >= 50 else 'var(--bs-danger)' }};">
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Infrastructure Basic -->
+        {% if land.infrastructure_basic %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-tools me-2"></i>Basic Infrastructure
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% for key, value in land.infrastructure_basic.items() %}
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span>{{ key.replace('_', ' ').title() }}</span>
+                            {% if value is sameas true %}
+                                <i class="fas fa-check-circle text-success"></i>
+                            {% elif value is sameas false %}
+                                <i class="fas fa-times-circle text-danger"></i>
+                            {% else %}
+                                <span class="text-muted">{{ value }}</span>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- Infrastructure Extended -->
+        {% if land.infrastructure_extended %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-building me-2"></i>Extended Infrastructure
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% for key, value in land.infrastructure_extended.items() %}
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="small">{{ key.replace('_', ' ').title() }}</span>
+                            {% if value is sameas true %}
+                                <i class="fas fa-check-circle text-success"></i>
+                            {% elif value is sameas false %}
+                                <i class="fas fa-times-circle text-danger"></i>
+                            {% elif value is number %}
+                                <span class="badge bg-secondary">{{ "%.0f"|format(value/1000) }}km</span>
+                            {% else %}
+                                <span class="text-muted small">{{ value }}</span>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- Transport -->
+        {% if land.transport %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-route me-2"></i>Transport
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% for key, value in land.transport.items() %}
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="small">{{ key.replace('_', ' ').title() }}</span>
+                            {% if value is sameas true %}
+                                <i class="fas fa-check-circle text-success"></i>
+                            {% elif value is sameas false %}
+                                <i class="fas fa-times-circle text-danger"></i>
+                            {% elif value is number and 'distance' in key %}
+                                <span class="badge bg-secondary">{{ "%.0f"|format(value/1000) }}km</span>
+                            {% elif value is number and 'duration' in key %}
+                                <span class="badge bg-info">{{ "%.0f"|format(value/60) }}min</span>
+                            {% else %}
+                                <span class="text-muted small">{{ value }}</span>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- Environment -->
+        {% if land.environment %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-leaf me-2"></i>Environment
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% for key, value in land.environment.items() %}
+                        {% if key != 'score_breakdown' %}
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="small">{{ key.replace('_', ' ').title() }}</span>
+                                {% if value is sameas true %}
+                                    <i class="fas fa-check-circle text-success"></i>
+                                {% elif value is sameas false %}
+                                    <i class="fas fa-times-circle text-danger"></i>
+                                {% else %}
+                                    <span class="text-muted small">{{ value }}</span>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- Services Quality -->
+        {% if land.services_quality %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-star me-2"></i>Services Quality
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% for key, value in land.services_quality.items() %}
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="small">{{ key.replace('_', ' ').title() }}</span>
+                            {% if value is number %}
+                                <div>
+                                    <span class="badge bg-warning">{{ "%.1f"|format(value) }}/5</span>
+                                    <div class="small">
+                                        {% for i in range(5) %}
+                                            {% if i < value %}
+                                                <i class="fas fa-star text-warning"></i>
+                                            {% else %}
+                                                <i class="far fa-star text-muted"></i>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            {% else %}
+                                <span class="text-muted small">{{ value }}</span>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- Meta Information -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-info-circle me-2"></i>Information
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="small">
+                    <div class="mb-2">
+                        <strong>Legal Status:</strong><br>
+                        {{ land.legal_status or 'Unknown' }}
+                    </div>
+                    <div class="mb-2">
+                        <strong>Added:</strong><br>
+                        {% if land.created_at %}
+                            {{ land.created_at.strftime('%B %d, %Y at %H:%M') }}
+                        {% else %}
+                            Unknown
+                        {% endif %}
+                    </div>
+                    <div>
+                        <strong>Email ID:</strong><br>
+                        <code>{{ land.source_email_id }}</code>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

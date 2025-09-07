@@ -1,0 +1,184 @@
+import re
+import logging
+from typing import Dict, Optional
+
+logger = logging.getLogger(__name__)
+
+class EmailParser:
+    def __init__(self):
+        # Regex patterns for extracting data from Idealista emails
+        self.patterns = {
+            'price': [
+                r'(\d{1,3}(?:\.\d{3})*)\s*€',
+                r'Precio:?\s*(\d{1,3}(?:\.\d{3})*)\s*€'
+            ],
+            'area': [
+                r'(\d+(?:,\d+)?)\s*m[²2]',
+                r'Superficie:?\s*(\d+(?:,\d+)?)\s*m[²2]'
+            ],
+            'url': [
+                r'https?://www\.idealista\.com/[^\s]+',
+                r'Ver anuncio:?\s*(https?://www\.idealista\.com/[^\s]+)'
+            ],
+            'municipality': [
+                r'en\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ\s]+(?:[A-ZÁÉÍÓÚÑ][a-záéíóúñ\s]*)*)',
+                r'Municipio:?\s*([A-ZÁÉÍÓÚÑ][a-záéíóúñ\s]+)'
+            ]
+        }
+        
+        # Land type classification
+        self.land_type_patterns = {
+            'developed': [
+                'urbano', 'desarrollado', 'urban', 'developed',
+                'suelo urbano', 'terreno urbano'
+            ],
+            'buildable': [
+                'urbanizable', 'buildable', 'para construir',
+                'suelo urbanizable', 'apto para construcción'
+            ]
+        }
+    
+    def parse_idealista_email(self, email_content: Dict) -> Optional[Dict]:
+        """Parse Idealista email and extract property data"""
+        try:
+            subject = email_content.get('subject', '')
+            body = email_content.get('body', '')
+            
+            # Combine subject and body for parsing
+            full_text = f"{subject}\n{body}"
+            
+            # Extract basic information
+            extracted_data = {
+                'title': self._extract_title(subject),
+                'price': self._extract_price(full_text),
+                'area': self._extract_area(full_text),
+                'url': self._extract_url(full_text),
+                'municipality': self._extract_municipality(full_text),
+                'description': self._clean_description(body),
+                'land_type': self._classify_land_type(full_text),
+                'legal_status': self._extract_legal_status(full_text)
+            }
+            
+            # Only return if we have essential data and valid land type
+            if (extracted_data['land_type'] in ['developed', 'buildable'] and
+                (extracted_data['url'] or extracted_data['title'])):
+                
+                logger.info(f"Successfully parsed email: {extracted_data['title'][:50]}...")
+                return extracted_data
+            else:
+                logger.warning(f"Skipping email - invalid land type or missing essential data")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Failed to parse email: {str(e)}")
+            return None
+    
+    def _extract_title(self, subject: str) -> str:
+        """Extract property title from email subject"""
+        # Clean up subject line
+        title = re.sub(r'^(Re:|Fwd?:|Idealista:?)\s*', '', subject, flags=re.IGNORECASE)
+        title = re.sub(r'\s+', ' ', title).strip()
+        return title
+    
+    def _extract_price(self, text: str) -> Optional[float]:
+        """Extract price from text"""
+        for pattern in self.patterns['price']:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                price_str = match.group(1).replace('.', '')
+                try:
+                    return float(price_str)
+                except ValueError:
+                    continue
+        return None
+    
+    def _extract_area(self, text: str) -> Optional[float]:
+        """Extract area from text"""
+        for pattern in self.patterns['area']:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                area_str = match.group(1).replace(',', '.')
+                try:
+                    return float(area_str)
+                except ValueError:
+                    continue
+        return None
+    
+    def _extract_url(self, text: str) -> Optional[str]:
+        """Extract Idealista URL from text"""
+        for pattern in self.patterns['url']:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                url = match.group(0) if len(match.groups()) == 0 else match.group(1)
+                # Clean up URL
+                url = url.strip()
+                if url.startswith('http'):
+                    return url
+        return None
+    
+    def _extract_municipality(self, text: str) -> Optional[str]:
+        """Extract municipality from text"""
+        for pattern in self.patterns['municipality']:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                municipality = match.group(1).strip()
+                # Clean up municipality name
+                municipality = re.sub(r'\s+', ' ', municipality)
+                return municipality.title()
+        return None
+    
+    def _classify_land_type(self, text: str) -> Optional[str]:
+        """Classify land type based on text content"""
+        text_lower = text.lower()
+        
+        # Check for developed land indicators
+        for keyword in self.land_type_patterns['developed']:
+            if keyword in text_lower:
+                return 'developed'
+        
+        # Check for buildable land indicators
+        for keyword in self.land_type_patterns['buildable']:
+            if keyword in text_lower:
+                return 'buildable'
+        
+        # If no clear indication, try to infer from other clues
+        if any(word in text_lower for word in ['solar', 'parcela', 'terreno']):
+            if any(word in text_lower for word in ['construir', 'edificar', 'vivienda']):
+                return 'buildable'
+        
+        return None
+    
+    def _extract_legal_status(self, text: str) -> Optional[str]:
+        """Extract legal status information"""
+        text_lower = text.lower()
+        
+        legal_indicators = {
+            'Developed': ['urbano consolidado', 'suelo urbano'],
+            'Buildable': ['urbanizable', 'apto para construcción'],
+            'Rustic': ['rústico', 'rustico', 'no urbanizable']
+        }
+        
+        for status, keywords in legal_indicators.items():
+            if any(keyword in text_lower for keyword in keywords):
+                return status
+        
+        return None
+    
+    def _clean_description(self, body: str) -> str:
+        """Clean and format email body for description"""
+        # Remove HTML tags if present
+        description = re.sub(r'<[^>]+>', '', body)
+        
+        # Remove email headers and footers
+        description = re.sub(r'^.*?(?:De:|From:|Subject:).*?\n', '', description, flags=re.MULTILINE)
+        description = re.sub(r'--\s*\n.*$', '', description, flags=re.DOTALL)
+        
+        # Clean up whitespace
+        description = re.sub(r'\n\s*\n', '\n\n', description)
+        description = re.sub(r'\s+', ' ', description)
+        
+        # Limit length
+        if len(description) > 2000:
+            description = description[:2000] + '...'
+        
+        return description.strip()

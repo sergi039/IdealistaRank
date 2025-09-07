@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+
+{% block title %}Properties - Idealista Land Watch{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>
+                <i class="fas fa-map-marked-alt me-2"></i>
+                Properties
+                <span class="badge bg-secondary">{{ lands|length }}</span>
+            </h1>
+            
+            <div>
+                <a href="{{ url_for('main.export_csv', **current_filters) }}" class="btn btn-success">
+                    <i class="fas fa-download me-1"></i>Export CSV
+                </a>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-filter me-2"></i>Filters & Search
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="GET" id="filter-form">
+                    <div class="row">
+                        <!-- Search -->
+                        <div class="col-md-4 mb-3">
+                            <label for="search" class="form-label">Search</label>
+                            <input type="text" class="form-control" id="search" name="search" 
+                                   value="{{ current_filters.search or '' }}" 
+                                   placeholder="Title, description, municipality...">
+                        </div>
+                        
+                        <!-- Land Type -->
+                        <div class="col-md-2 mb-3">
+                            <label for="land_type" class="form-label">Land Type</label>
+                            <select class="form-select" id="land_type" name="land_type">
+                                <option value="">All Types</option>
+                                <option value="developed" {{ 'selected' if current_filters.land_type == 'developed' }}>
+                                    Developed
+                                </option>
+                                <option value="buildable" {{ 'selected' if current_filters.land_type == 'buildable' }}>
+                                    Buildable
+                                </option>
+                            </select>
+                        </div>
+                        
+                        <!-- Municipality -->
+                        <div class="col-md-3 mb-3">
+                            <label for="municipality" class="form-label">Municipality</label>
+                            <select class="form-select" id="municipality" name="municipality">
+                                <option value="">All Municipalities</option>
+                                {% for municipality in municipalities %}
+                                    <option value="{{ municipality }}" 
+                                            {{ 'selected' if current_filters.municipality == municipality }}>
+                                        {{ municipality }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <!-- Sort -->
+                        <div class="col-md-3 mb-3">
+                            <label for="sort" class="form-label">Sort By</label>
+                            <div class="input-group">
+                                <select class="form-select" id="sort" name="sort">
+                                    <option value="score_total" {{ 'selected' if current_filters.sort == 'score_total' }}>
+                                        Score Total
+                                    </option>
+                                    <option value="price" {{ 'selected' if current_filters.sort == 'price' }}>
+                                        Price
+                                    </option>
+                                    <option value="area" {{ 'selected' if current_filters.sort == 'area' }}>
+                                        Area
+                                    </option>
+                                    <option value="created_at" {{ 'selected' if current_filters.sort == 'created_at' }}>
+                                        Date Added
+                                    </option>
+                                </select>
+                                <select class="form-select" name="order" style="max-width: 100px;">
+                                    <option value="desc" {{ 'selected' if current_filters.order == 'desc' }}>↓</option>
+                                    <option value="asc" {{ 'selected' if current_filters.order == 'asc' }}>↑</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <!-- Price Range -->
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Price Range (€)</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" name="min_price" 
+                                       value="{{ current_filters.min_price or '' }}" placeholder="Min">
+                                <span class="input-group-text">-</span>
+                                <input type="number" class="form-control" name="max_price" 
+                                       value="{{ current_filters.max_price or '' }}" placeholder="Max">
+                            </div>
+                        </div>
+                        
+                        <!-- Area Range -->
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Area Range (m²)</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" name="min_area" 
+                                       value="{{ current_filters.min_area or '' }}" placeholder="Min">
+                                <span class="input-group-text">-</span>
+                                <input type="number" class="form-control" name="max_area" 
+                                       value="{{ current_filters.max_area or '' }}" placeholder="Max">
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary me-2">
+                                <i class="fas fa-search me-1"></i>Apply Filters
+                            </button>
+                            <a href="{{ url_for('main.lands') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Clear
+                            </a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Results Table -->
+        {% if lands %}
+            <div class="card">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Score</th>
+                                    <th>Title</th>
+                                    <th>Price</th>
+                                    <th>Area</th>
+                                    <th>Municipality</th>
+                                    <th>Type</th>
+                                    <th>Added</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for land in lands %}
+                                    <tr class="land-row" data-land-id="{{ land.id }}">
+                                        <td>
+                                            {% if land.score_total %}
+                                                <span class="badge score-badge" 
+                                                      style="background-color: {{ 'var(--bs-success)' if land.score_total >= 70 else 'var(--bs-warning)' if land.score_total >= 50 else 'var(--bs-danger)' }}">
+                                                    {{ "%.1f"|format(land.score_total) }}
+                                                </span>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="fw-bold">{{ land.title[:60] }}{% if land.title|length > 60 %}...{% endif %}</div>
+                                            {% if land.location_lat and land.location_lon %}
+                                                <small class="text-muted">
+                                                    <i class="fas fa-map-marker-alt me-1"></i>
+                                                    {{ "%.4f"|format(land.location_lat) }}, {{ "%.4f"|format(land.location_lon) }}
+                                                </small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if land.price %}
+                                                <strong>{{ "{:,.0f}".format(land.price) }}€</strong>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if land.area %}
+                                                {{ "{:,.0f}".format(land.area) }} m²
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ land.municipality or '-' }}</td>
+                                        <td>
+                                            {% if land.land_type %}
+                                                <span class="badge {{ 'bg-success' if land.land_type == 'developed' else 'bg-warning' }}">
+                                                    {{ land.land_type.title() }}
+                                                </span>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if land.created_at %}
+                                                <small>{{ land.created_at.strftime('%Y-%m-%d') }}</small>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm">
+                                                <a href="{{ url_for('main.land_detail', land_id=land.id) }}" 
+                                                   class="btn btn-outline-primary">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                {% if land.url %}
+                                                    <a href="{{ land.url }}" target="_blank" 
+                                                       class="btn btn-outline-success">
+                                                        <i class="fas fa-external-link-alt"></i>
+                                                    </a>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                <h4>No properties found</h4>
+                <p class="text-muted">Try adjusting your filters or run a manual sync to fetch new data.</p>
+                <button class="btn btn-primary" 
+                        hx-post="{{ url_for('api.manual_ingestion') }}"
+                        hx-trigger="click"
+                        hx-indicator="#ingestion-spinner">
+                    <i class="fas fa-sync-alt me-1"></i>
+                    Run Manual Sync
+                </button>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Auto-submit form on filter changes (debounced)
+let filterTimeout;
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('filter-form');
+    const inputs = form.querySelectorAll('input, select');
+    
+    inputs.forEach(input => {
+        input.addEventListener('change', function() {
+            clearTimeout(filterTimeout);
+            filterTimeout = setTimeout(() => {
+                if (input.name !== 'search') {
+                    form.submit();
+                }
+            }, 300);
+        });
+        
+        if (input.name === 'search') {
+            input.addEventListener('input', function() {
+                clearTimeout(filterTimeout);
+                filterTimeout = setTimeout(() => {
+                    form.submit();
+                }, 1000);
+            });
+        }
+    });
+});
+
+// HTMX event listeners
+document.addEventListener('htmx:responseError', function(evt) {
+    alert('Error: ' + evt.detail.xhr.responseText);
+});
+
+document.addEventListener('htmx:afterRequest', function(evt) {
+    if (evt.detail.successful) {
+        // Reload page after successful ingestion
+        if (evt.detail.xhr.response) {
+            const response = JSON.parse(evt.detail.xhr.response);
+            if (response.success) {
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+            }
+        }
+    }
+});
+</script>
+{% endblock %}
