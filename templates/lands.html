@@ -94,26 +94,54 @@
                     <div class="row">
                         <!-- Price Range -->
                         <div class="col-md-3 mb-3">
-                            <label class="form-label">Price Range (€)</label>
-                            <div class="input-group">
-                                <input type="number" class="form-control" name="min_price" 
-                                       value="{{ current_filters.min_price or '' }}" placeholder="Min">
-                                <span class="input-group-text">-</span>
-                                <input type="number" class="form-control" name="max_price" 
-                                       value="{{ current_filters.max_price or '' }}" placeholder="Max">
-                            </div>
+                            <label for="price_range" class="form-label">Price Range (€)</label>
+                            <select class="form-select" id="price_range" name="price_range">
+                                <option value="">All Prices</option>
+                                <option value="0-25000" {{ 'selected' if current_filters.price_range == '0-25000' }}>
+                                    Up to 25,000€
+                                </option>
+                                <option value="25000-50000" {{ 'selected' if current_filters.price_range == '25000-50000' }}>
+                                    25,000€ - 50,000€
+                                </option>
+                                <option value="50000-100000" {{ 'selected' if current_filters.price_range == '50000-100000' }}>
+                                    50,000€ - 100,000€
+                                </option>
+                                <option value="100000-200000" {{ 'selected' if current_filters.price_range == '100000-200000' }}>
+                                    100,000€ - 200,000€
+                                </option>
+                                <option value="200000-500000" {{ 'selected' if current_filters.price_range == '200000-500000' }}>
+                                    200,000€ - 500,000€
+                                </option>
+                                <option value="500000-999999999" {{ 'selected' if current_filters.price_range == '500000-999999999' }}>
+                                    Over 500,000€
+                                </option>
+                            </select>
                         </div>
                         
                         <!-- Area Range -->
                         <div class="col-md-3 mb-3">
-                            <label class="form-label">Area Range (m²)</label>
-                            <div class="input-group">
-                                <input type="number" class="form-control" name="min_area" 
-                                       value="{{ current_filters.min_area or '' }}" placeholder="Min">
-                                <span class="input-group-text">-</span>
-                                <input type="number" class="form-control" name="max_area" 
-                                       value="{{ current_filters.max_area or '' }}" placeholder="Max">
-                            </div>
+                            <label for="area_range" class="form-label">Area Range (m²)</label>
+                            <select class="form-select" id="area_range" name="area_range">
+                                <option value="">All Areas</option>
+                                <option value="0-500" {{ 'selected' if current_filters.area_range == '0-500' }}>
+                                    Up to 500 m²
+                                </option>
+                                <option value="500-1000" {{ 'selected' if current_filters.area_range == '500-1000' }}>
+                                    500 - 1,000 m²
+                                </option>
+                                <option value="1000-2500" {{ 'selected' if current_filters.area_range == '1000-2500' }}>
+                                    1,000 - 2,500 m²
+                                </option>
+                                <option value="2500-5000" {{ 'selected' if current_filters.area_range == '2500-5000' }}>
+                                    2,500 - 5,000 m²
+                                </option>
+                                <option value="5000-10000" {{ 'selected' if current_filters.area_range == '5000-10000' }}>
+                                    5,000 - 10,000 m²
+                                </option>
+                                <option value="10000-999999999" {{ 'selected' if current_filters.area_range == '10000-999999999' }}>
+                                    Over 10,000 m²
+                                </option>
+                            </select>
                         </div>
                         
                         <div class="col-md-6 mb-3 d-flex align-items-end">
