@@ -131,17 +131,29 @@ class IMAPService:
                 client.login(self.user, self.password)
                 logger.info(f"Connected to IMAP server as {self.user}")
                 
-                # Select the folder/label
-                try:
-                    client.select_folder(self.folder, readonly=True)
-                    logger.info(f"Selected folder: {self.folder}")
-                except Exception as e:
-                    # If label doesn't exist, try INBOX
-                    logger.warning(f"Folder '{self.folder}' not found, trying INBOX")
-                    client.select_folder("INBOX", readonly=True)
+                # For Gmail, we need to search in All Mail with label filter
+                if 'gmail' in self.host.lower():
+                    # Gmail-specific: use [Gmail]/All Mail folder
+                    try:
+                        client.select_folder('[Gmail]/All Mail', readonly=True)
+                        logger.info(f"Selected [Gmail]/All Mail for Gmail label search")
+                    except:
+                        # Fallback for different language Gmail
+                        client.select_folder('INBOX', readonly=True)
+                        logger.info(f"Using INBOX as fallback")
+                else:
+                    # Regular IMAP folder selection
+                    client.select_folder(self.folder or "INBOX", readonly=True)
+                    logger.info(f"Selected folder: {self.folder or 'INBOX'}")
                 
                 # Search for emails
-                if self.search_query == "ALL":
+                if 'gmail' in self.host.lower() and self.folder:
+                    # For Gmail, search emails from idealista.com
+                    # This will find all emails from the Idealista service
+                    from_search = f'from:idealista.com'
+                    uids = client.gmail_search(from_search)
+                    logger.info(f"Gmail search from 'idealista.com': found {len(uids)} emails")
+                elif self.search_query == "ALL":
                     # Get all UIDs
                     uids = client.search(['ALL'])
                 elif self.search_query == "UNSEEN":
