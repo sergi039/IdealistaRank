@@ -121,191 +121,87 @@ class IMAPService:
         if not self.user or not self.password:
             logger.error("IMAP credentials not configured")
             return []
-        
         email_data = []
         max_results = max_results or self.max_emails
-        
+
         try:
             with IMAPClient(self.host, port=self.port, ssl=self.ssl) as client:
-                # Login
                 client.login(self.user, self.password)
                 logger.info(f"Connected to IMAP server as {self.user}")
-                
-                # For Gmail, check for Idealista folder
-                idealista_folder = None
+
+                # Gmail: работаем из All Mail, ярлык — через X-GM-RAW
                 if 'gmail' in self.host.lower():
-                    # List all folders to see what's available
-                    folders = client.list_folders()
-                    folder_names = [f[2] for f in folders]
-                    logger.info(f"Available Gmail folders: {folder_names[:15]}")  # Show first 15
-                    
-                    # Check if Idealista folder exists (case-insensitive)
-                    for folder in folder_names:
-                        if folder.lower() == 'idealista':
-                            idealista_folder = folder
-                            break
-                    
-                    # Use [Gmail]/All Mail to find archived emails
                     try:
                         client.select_folder('[Gmail]/All Mail', readonly=True)
-                        logger.info(f"Selected [Gmail]/All Mail to search archived emails")
-                    except:
+                        logger.info("Selected [Gmail]/All Mail")
+                    except Exception:
                         client.select_folder('INBOX', readonly=True)
-                        logger.info(f"Fallback to INBOX")
+                        logger.info("Fallback to INBOX")
+                    # Упрощенный поиск - только по отправителю
+                    gm_query = 'from:noresponder@idealista.com'
+                    try:
+                        uids = client.search(['X-GM-RAW', gm_query])
+                        logger.info(f"Gmail X-GM-RAW search found {len(uids)} emails")
+                    except Exception as e:
+                        logger.warning(f"X-GM-RAW not available: {e}, falling back to ALL")
+                        uids = client.search(['ALL'])
                 else:
-                    # Regular IMAP folder selection
                     client.select_folder(self.folder or "INBOX", readonly=True)
-                    logger.info(f"Selected folder: {self.folder or 'INBOX'}")
-                
-                # Search for emails
-                if 'gmail' in self.host.lower():
-                    # For Gmail, if we're in Idealista folder, get ALL emails
-                    # First, let's see all emails in current folder
-                    all_uids = client.search(['ALL'])
-                    logger.info(f"Total emails in current folder: {len(all_uids)}")
-                    
-                    # Let's check the FROM headers of first few emails for debugging
-                    if len(all_uids) > 0:
-                        sample_uids = all_uids[:5]  # Check first 5 emails
-                        try:
-                            messages = client.fetch(sample_uids, ['ENVELOPE'])
-                            for uid, data in messages.items():
-                                envelope = data.get(b'ENVELOPE')
-                                if envelope and hasattr(envelope, 'from_') and envelope.from_:
-                                    # Extract email address from envelope structure
-                                    from_info = envelope.from_[0]
-                                    if hasattr(from_info, 'mailbox') and hasattr(from_info, 'host'):
-                                        from_addr = f"{from_info.mailbox}@{from_info.host}"
-                                    else:
-                                        from_addr = str(from_info)
-                                    logger.debug(f"Email UID {uid} FROM: {from_addr}")
-                        except Exception as e:
-                            logger.debug(f"Error checking email headers: {e}")
-                    
-                    # If we selected Idealista folder, get ALL emails from it
-                    # Otherwise search for noresponder@idealista.com
-                    if idealista_folder:
-                        logger.info(f"Getting ALL emails from {idealista_folder} folder...")
-                        uids = all_uids  # Use all emails from Idealista folder
-                        logger.info(f"Found {len(uids)} emails in {idealista_folder} folder")
-                    else:
-                        logger.info("Searching for Idealista emails...")
-                        
-                        # Try multiple search approaches
-                        # 1. Search by FROM
-                        uids = client.search(['FROM', 'noresponder@idealista.com'])
-                        logger.info(f"FROM noresponder@idealista.com: found {len(uids)} emails")
-                        
-                        # 2. If no results, search by subject
-                        if len(uids) == 0:
-                            logger.info("Trying SUBJECT search...")
-                            uids = client.search(['SUBJECT', 'Cantabria Land'])
-                            logger.info(f"SUBJECT 'Cantabria Land': found {len(uids)} emails")
-                        
-                        # 3. If still no results, search by body text
-                        if len(uids) == 0:
-                            logger.info("Trying BODY search...")
-                            uids = client.search(['BODY', 'idealista.com'])
-                            logger.info(f"BODY 'idealista.com': found {len(uids)} emails")
-                            
-                            # Show first few email details for debugging
-                            if len(uids) > 0:
-                                sample_uids = uids[:3]
-                                messages = client.fetch(sample_uids, ['ENVELOPE'])
-                                for uid, data in messages.items():
-                                    envelope = data.get(b'ENVELOPE')
-                                    if envelope:
-                                        subject = envelope.subject.decode('utf-8', errors='ignore') if envelope.subject else "No subject"
-                                        logger.info(f"Sample email UID {uid}: {subject}")
-                elif self.search_query == "ALL":
-                    # Get all UIDs
                     uids = client.search(['ALL'])
-                elif self.search_query == "UNSEEN":
-                    uids = client.search(['UNSEEN'])
-                else:
-                    # Custom search query
-                    uids = client.search([self.search_query])
-                
-                logger.info(f"Total emails in folder: {len(uids)}")
-                
-                # Filter only new UIDs
+
+                logger.info(f"Total emails found: {len(uids)}")
+
                 if self.last_seen_uid > 0:
-                    uids = [uid for uid in uids if uid > self.last_seen_uid]
-                
-                # Sort and limit
-                uids = sorted(uids)[:max_results]
-                
+                    uids = [u for u in uids if u > self.last_seen_uid]
+                    logger.info(f"Filtering by last_seen_uid ({self.last_seen_uid}): {len(uids)} new emails")
+                    
+                # Ограничим первую обработку 5 письмами для теста
+                uids = sorted(uids)[:5] if max_results is None else sorted(uids)[:max_results]
                 if not uids:
                     logger.info("No new emails found")
                     return []
-                
-                logger.info(f"Found {len(uids)} new emails to process")
-                
-                # Fetch emails
-                fetch_data = client.fetch(uids, ['RFC822', 'INTERNALDATE', 'FLAGS'])
+
+                logger.info(f"Processing {len(uids)} emails...")
+                fetch_data = client.fetch(uids, ['RFC822', 'INTERNALDATE'])
                 
                 for uid in uids:
                     try:
                         raw_email = fetch_data[uid][b'RFC822']
                         msg = message_from_bytes(raw_email)
-                        internal_date = fetch_data[uid][b'INTERNALDATE']
-                        
-                        # Get subject
-                        subject = self._decode_header_value(msg.get('Subject', ''))
-                        
-                        # Skip if not Idealista email
-                        if 'idealista' not in subject.lower():
-                            continue
-                        
-                        # Extract HTML content
+
                         html_parts = self._extract_html_parts(msg)
-                        html_body = '\n'.join(html_parts) if html_parts else ''
-                        
-                        # If no HTML, try text
-                        if not html_body:
-                            text_body = self._extract_text_parts(msg)
-                            if text_body:
-                                html_body = text_body
-                        
-                        if not html_body:
-                            logger.warning(f"No content found in email UID {uid}")
+                        body = '\n'.join(html_parts) or self._extract_text_parts(msg)
+                        if not body:
+                            logger.warning(f"No body found in email UID {uid}")
                             continue
+
+                        subject = self._decode_header_value(msg.get('Subject', ''))
+                        logger.info(f"Processing email UID {uid}: {subject[:50]}...")
                         
-                        # Parse the email content
-                        email_content = {
-                            'subject': subject,
-                            'body': html_body,
-                            'message_id': str(uid)
-                        }
-                        
-                        parsed_data = self.email_parser.parse_idealista_email(email_content)
-                        
-                        if parsed_data:
-                            # Generate unique ID based on email UID
-                            parsed_data['source_email_id'] = f"imap_{uid}"
-                            parsed_data['email_received_at'] = internal_date
-                            email_data.append(parsed_data)
-                            logger.info(f"Successfully parsed email UID {uid}: {subject[:50]}...")
+                        email_content = {'subject': subject, 'body': body, 'message_id': f"imap_{uid}"}
+                        parsed = self.email_parser.parse_idealista_email(email_content)
+                        if parsed:
+                            parsed['source_email_id'] = f"imap_{uid}"
+                            parsed['email_received_at'] = fetch_data[uid][b'INTERNALDATE']
+                            email_data.append(parsed)
+                            logger.info(f"Successfully parsed email UID {uid}")
                         else:
                             logger.warning(f"Could not parse Idealista data from email UID {uid}")
-                        
-                        # Update last seen UID
-                        self.last_seen_uid = max(self.last_seen_uid, uid)
-                        
                     except Exception as e:
-                        logger.error(f"Failed to process email UID {uid}: {str(e)}")
+                        logger.error(f"Failed to process UID {uid}: {e}")
                         continue
-                
-                # Save the last seen UID
-                if self.last_seen_uid > 0:
+
+                # Persist last seen
+                if uids:
+                    self.last_seen_uid = max(uids)
                     self._save_last_seen_uid(self.last_seen_uid)
                     logger.info(f"Saved last seen UID: {self.last_seen_uid}")
-                
+
                 logger.info(f"Successfully processed {len(email_data)} Idealista emails")
-                
+
         except Exception as e:
-            logger.error(f"Failed to fetch emails via IMAP: {str(e)}")
-        
+            logger.error(f"Failed to fetch via IMAP: {e}")
+
         return email_data
     
     def run_ingestion(self) -> int:
