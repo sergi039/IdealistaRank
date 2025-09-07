@@ -1,0 +1,138 @@
+PROJECT NAME:
+Idealista Land Watch & Rank
+
+LANGUAGE PREFERENCES:
+- All code, database fields, and UI must be in English.
+- Keep source content (titles, descriptions from Idealista emails) in original language (Spanish).
+- Communication with Replit Agent can be in English or Russian.
+
+GOAL:
+Build a production-ready web application that:
+1. Fetches new property listings from Gmail (emails labeled "Idealista") twice per day.
+2. Extracts available fields (title, url, price, area, municipality, description, land type).
+3. Stores them in PostgreSQL (Replit SQL).
+4. Enriches data with external APIs (Google Maps, Google Places, OSM).
+5. Applies a multi-criteria scoring system (basic infrastructure, services, transport, legal status, views, quality of nearby schools/restaurants/cafes).
+6. Displays results in a sortable/filterable web table.
+7. Provides REST API endpoints for automation and data export.
+
+TECH STACK:
+- Backend: Python 3.10 + Flask
+- Frontend: Jinja2 templates + HTMX + vanilla JS
+- Database: PostgreSQL (Replit SQL)
+- ORM: SQLAlchemy
+- Scheduler: Replit Scheduled Deployments (cron-like jobs)
+- APIs: Gmail API, Google Maps, Google Places, OSM Overpass
+
+DATABASE SCHEMA (PostgreSQL):
+lands(
+    id SERIAL PRIMARY KEY,
+    source_email_id VARCHAR(255) UNIQUE,
+    title TEXT,
+    url TEXT,
+    price NUMERIC,
+    area NUMERIC,
+    municipality VARCHAR(255),
+    location_lat NUMERIC,
+    location_lon NUMERIC,
+    land_type VARCHAR(20) CHECK (land_type IN ('developed','buildable')),
+    description TEXT,
+    infrastructure_basic JSONB,     -- electricity, water, internet, gas
+    infrastructure_extended JSONB,  -- supermarket, school, restaurants, hospital
+    transport JSONB,                -- train, airport, highway, bus
+    environment JSONB,              -- sea_view, mountain_view, forest, orientation
+    neighborhood JSONB,             -- new_houses, area_price_level, noise
+    services_quality JSONB,         -- schools rating, restaurants rating, cafes rating
+    legal_status VARCHAR(50),       -- Developed / Buildable
+    score_total NUMERIC,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+DATA INGESTION:
+- Connect to Gmail API, read only emails with label "Idealista".
+- Extract: title, url, price, area, municipality, description, land type.
+- Deduplicate by source_email_id.
+- Land type must only allow "Developed (Urbano)" or "Buildable (Urbanizable)"; discard others.
+
+DATA ENRICHMENT:
+- Google Maps: distances to city center, supermarkets, schools, hospitals, restaurants, cafes.
+- Google Places: ratings for schools, restaurants, cafes.
+- OSM Overpass: fallback for POI data (shops, parks, roads).
+- Calculate accessibility: train, airport, highways, bus stops.
+- Detect views: sea/mountain/forest from description or coordinates.
+
+SCORING SYSTEM:
+Each land is evaluated and scored (0–100):
+1. Basic infrastructure (electricity, water, internet, gas).
+2. Extended infrastructure (supermarket, school, restaurants, hospital).
+3. Transport accessibility (train, airport, highway, bus).
+4. Environment (sea view, mountain view, forest, orientation).
+5. Neighborhood (new houses nearby, price level, noise).
+6. Legal status (developed/buildable valid; rustic excluded).
+7. Service quality (average ratings from Google Places).
+Final score = weighted sum of all features (weights configurable).
+
+SCHEDULER:
+- Must run twice per day:
+  - 07:00 AM CET
+  - 19:00 PM CET
+- Implement using Replit Scheduled Deployments.
+
+API ENDPOINTS:
+- GET  /healthz → {"ok": true}
+- POST /ingest/email/run → manual Gmail ingestion trigger
+- GET  /lands?sort=score_total&filter=developed|buildable
+- GET  /lands/{id} → detailed view + score breakdown
+- GET  /export.csv → export current selection
+- GET  /criteria → get current scoring weights
+- PUT  /criteria → update weights and rescore
+
+WEB UI:
+- Page `/lands` shows sortable/filterable table.
+- Columns: price, area, municipality, land_type, all scoring criteria, score_total.
+- Features:
+  - Sort by any column
+  - Filter by land_type, price, area, municipality
+  - Search box
+  - Click row → open original Idealista URL
+  - Export CSV
+
+CONFIG & SECRETS:
+Use Replit Secrets for:
+- GMAIL_API_KEY
+- GOOGLE_MAPS_API_KEY
+- GOOGLE_PLACES_API_KEY
+- DATABASE_URL
+- SECRET_KEY
+
+NON-FUNCTIONAL REQUIREMENTS:
+- All text in English.
+- Keep source content in Spanish.
+- Clean, modular code with tests.
+- Logging and error handling included.
+- Must run fully inside Replit environment.
+
+TESTS (at least 15):
+- Email parsing (title, price, area, url, land_type).
+- Land type classification (developed/buildable only).
+- Deduplication logic.
+- Geocoding with fallback.
+- Distance/time calculation.
+- POI data enrichment (schools, supermarkets, restaurants).
+- Rating aggregation.
+- Sea/mountain/forest view detection.
+- Noise evaluation.
+- Score calculation with missing data.
+- API endpoint tests.
+- Sorting/filtering in UI.
+- CSV export.
+- Scheduler trigger.
+- Criteria update and rescore.
+
+ACCEPTANCE CRITERIA:
+- Application runs in Replit with `.env` configured.
+- Twice-daily ingestion works automatically.
+- New listings are stored, enriched, scored, and visible in the UI.
+- Filters and sorting in the UI work correctly.
+- Export to CSV works.
+- Changing scoring weights triggers rescore.
