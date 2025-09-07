@@ -29,34 +29,32 @@ class ScoringService:
             logger.error(f"Failed to load custom weights: {str(e)}")
     
     def calculate_score(self, land) -> float:
-        """Calculate total score for a land based on all criteria"""
+        """Calculate total score for a land based on all criteria (max 100 points)"""
         try:
             scores = {}
             
-            # Calculate individual scores
+            # Calculate individual scores (each returns 0-100)
+            scores['location_quality'] = self._score_location_quality(land)
+            scores['transport'] = self._score_transport(land)
             scores['infrastructure_basic'] = self._score_infrastructure_basic(land)
             scores['infrastructure_extended'] = self._score_infrastructure_extended(land)
-            scores['transport'] = self._score_transport(land)
             scores['environment'] = self._score_environment(land)
-            scores['neighborhood'] = self._score_neighborhood(land)
+            scores['physical_characteristics'] = self._score_physical_characteristics(land)
             scores['services_quality'] = self._score_services_quality(land)
             scores['legal_status'] = self._score_legal_status(land)
+            scores['development_potential'] = self._score_development_potential(land)
             
-            # Calculate weighted total score
+            # Calculate weighted total score (directly to 100 scale)
             total_score = 0
-            total_weight = 0
             
             for criterion, score in scores.items():
                 if score is not None and criterion in self.weights:
                     weight = self.weights[criterion]
+                    # Each score is 0-100, multiply by weight (e.g., 0.20 for 20%)
                     total_score += score * weight
-                    total_weight += weight
             
-            # Normalize to 0-100 scale
-            if total_weight > 0:
-                final_score = (total_score / total_weight) * 100
-            else:
-                final_score = 0
+            # Score is already in 0-100 scale
+            final_score = min(100, max(0, total_score))  # Ensure 0-100 range
             
             # Update land record
             land.score_total = round(final_score, 2)
@@ -285,6 +283,112 @@ class ScoringService:
         except Exception as e:
             logger.error(f"Failed to score legal status: {str(e)}")
             return None
+    
+    def _score_location_quality(self, land) -> Optional[float]:
+        """Score location quality based on neighborhood and proximity to urban centers"""
+        try:
+            score = 50  # Base score
+            
+            # Municipality quality check
+            municipality = (land.municipality or "").lower()
+            
+            # Premium locations in Spain
+            premium_locations = ['madrid', 'barcelona', 'valencia', 'sevilla', 'bilbao', 
+                                'málaga', 'santander', 'oviedo', 'gijón']
+            secondary_locations = ['suances', 'ribadedeva', 'llanes', 'ribadesella']
+            
+            for loc in premium_locations:
+                if loc in municipality:
+                    score = 90
+                    break
+            
+            for loc in secondary_locations:
+                if loc in municipality:
+                    score = 70
+                    break
+            
+            # Use neighborhood data if available
+            if land.neighborhood:
+                # Adjust based on neighborhood factors
+                if land.neighborhood.get('population_density'):
+                    density = land.neighborhood.get('population_density')
+                    if density > 1000:  # High density urban
+                        score += 10
+                    elif density > 100:  # Suburban
+                        score += 5
+            
+            return min(100, score)
+            
+        except Exception as e:
+            logger.error(f"Failed to score location quality: {str(e)}")
+            return 50  # Default middle score
+    
+    def _score_physical_characteristics(self, land) -> Optional[float]:
+        """Score physical characteristics like size, shape, topography"""
+        try:
+            score = 70  # Base score
+            
+            # Area scoring - ideal range 1000-5000 m²
+            if land.area:
+                if 1000 <= land.area <= 5000:
+                    score += 20  # Ideal size
+                elif 500 <= land.area < 1000:
+                    score += 10  # Small but acceptable
+                elif 5000 < land.area <= 10000:
+                    score += 15  # Large, good for development
+                elif land.area > 10000:
+                    score += 10  # Very large, may have challenges
+            
+            # Price per m² indicator (if price and area available)
+            if land.price and land.area and land.area > 0:
+                price_per_sqm = land.price / land.area
+                if price_per_sqm < 50:  # Very affordable
+                    score += 10
+                elif price_per_sqm < 100:  # Reasonable
+                    score += 5
+            
+            return min(100, score)
+            
+        except Exception as e:
+            logger.error(f"Failed to score physical characteristics: {str(e)}")
+            return 50  # Default middle score
+    
+    def _score_development_potential(self, land) -> Optional[float]:
+        """Score future development potential"""
+        try:
+            score = 50  # Base score
+            
+            # Land type is key indicator
+            land_type = (land.land_type or "").lower()
+            
+            if land_type == 'developed':
+                score = 30  # Already developed, less potential
+            elif land_type == 'buildable':
+                score = 80  # High development potential
+            
+            # Check for urbanization mentions in description
+            description = (land.description or "").lower()
+            
+            positive_keywords = ['urbanizable', 'desarrollo', 'proyecto aprobado', 
+                               'plan parcial', 'licencia', 'permiso']
+            negative_keywords = ['protegido', 'rustico', 'no urbanizable', 
+                               'restricción', 'zona verde']
+            
+            for keyword in positive_keywords:
+                if keyword in description:
+                    score += 10
+                    break
+            
+            for keyword in negative_keywords:
+                if keyword in description:
+                    score -= 20
+                    break
+            
+            return min(100, max(0, score))
+            
+        except Exception as e:
+            logger.error(f"Failed to score development potential: {str(e)}")
+            return 50  # Default middle score
     
     def update_weights(self, new_weights: Dict[str, float]) -> bool:
         """Update scoring weights and rescore all lands"""

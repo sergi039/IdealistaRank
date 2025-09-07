@@ -38,13 +38,25 @@ class Config:
     # OSM Overpass API
     OSM_OVERPASS_URL = "https://overpass-api.de/api/interpreter"
     
-    # Default scoring weights
+    # Professional scoring weights based on Spanish/European standards
+    # Total must equal 1.0 (100%)
     DEFAULT_SCORING_WEIGHTS = {
-        'infrastructure_basic': 0.20,      # 20%
-        'infrastructure_extended': 0.15,   # 15%
-        'transport': 0.20,                 # 20%
-        'environment': 0.15,               # 15%
-        'neighborhood': 0.15,              # 15%
-        'services_quality': 0.10,          # 10%
-        'legal_status': 0.05               # 5%
+        # Location & Accessibility (35%)
+        'location_quality': 0.20,          # Proximity to urban centers, neighborhood
+        'transport': 0.15,                 # Public transport, road access
+        
+        # Infrastructure & Utilities (30%)
+        'infrastructure_basic': 0.20,      # Water, electricity, sewerage, internet
+        'infrastructure_extended': 0.10,   # Gas, telecommunications, public services
+        
+        # Physical & Environmental (15%)
+        'environment': 0.10,               # Environmental quality, natural features
+        'physical_characteristics': 0.05,  # Topography, size, shape
+        
+        # Services & Amenities (10%)
+        'services_quality': 0.10,          # Schools, hospitals, shopping
+        
+        # Legal & Development (10%)
+        'legal_status': 0.05,              # Zoning status, building permissions
+        'development_potential': 0.05      # Future development possibilities
     }
