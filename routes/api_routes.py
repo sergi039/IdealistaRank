@@ -1,5 +1,6 @@
 import logging
-from flask import Blueprint, jsonify, request
+import os
+from flask import Blueprint, jsonify, request, send_from_directory
 from models import Land, ScoringCriteria
 from app import db
 
@@ -11,6 +12,15 @@ api_bp = Blueprint('api', __name__)
 def health_check():
     """API health check"""
     return jsonify({"ok": True})
+
+@api_bp.route('/download/project')
+def download_project():
+    """Download project archive"""
+    try:
+        static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static')
+        return send_from_directory(static_dir, 'idealista-project.zip', as_attachment=True)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 404
 
 @api_bp.route('/ingest/email/run', methods=['POST'])
 def manual_ingestion():
