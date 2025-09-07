@@ -247,9 +247,10 @@ class IMAPService:
                     db.session.add(land)
                     db.session.commit()
                     
-                    # Enrich the land data
-                    enrichment_service = EnrichmentService()
-                    enrichment_service.enrich_land(land.id)
+                    # Temporarily skip enrichment to avoid timeouts
+                    # enrichment_service = EnrichmentService()
+                    # enrichment_service.enrich_land(land.id)
+                    logger.info(f"Skipping enrichment for land {land.id} to avoid timeouts")
                     
                     processed_count += 1
                     logger.info(f"Processed new land: {land.title}")

@@ -172,19 +172,60 @@ class EmailParser:
     
     def _clean_description(self, body: str) -> str:
         """Clean and format email body for description"""
-        # Remove HTML tags if present
-        description = re.sub(r'<[^>]+>', '', body)
+        # Remove CSS styles and scripts
+        description = re.sub(r'<style[^>]*>.*?</style>', '', body, flags=re.DOTALL | re.IGNORECASE)
+        description = re.sub(r'<script[^>]*>.*?</script>', '', description, flags=re.DOTALL | re.IGNORECASE)
         
-        # Remove email headers and footers
-        description = re.sub(r'^.*?(?:De:|From:|Subject:).*?\n', '', description, flags=re.MULTILINE)
-        description = re.sub(r'--\s*\n.*$', '', description, flags=re.DOTALL)
+        # Remove HTML comments
+        description = re.sub(r'<!--.*?-->', '', description, flags=re.DOTALL)
         
-        # Clean up whitespace
-        description = re.sub(r'\n\s*\n', '\n\n', description)
+        # Extract text from specific patterns in Idealista emails
+        # Look for property details between common markers
+        property_match = re.search(r'(Land|Detached house|Terreno|Solar|Parcela).*?€.*?m[²2].*?Contact', description, re.DOTALL | re.IGNORECASE)
+        if property_match:
+            description = property_match.group(0)
+        
+        # Remove all HTML tags
+        description = re.sub(r'<[^>]+>', ' ', description)
+        
+        # Decode HTML entities
+        description = description.replace('&nbsp;', ' ')
+        description = description.replace('&amp;', '&')
+        description = description.replace('&lt;', '<')
+        description = description.replace('&gt;', '>')
+        description = description.replace('&quot;', '"')
+        description = description.replace('&aacute;', 'á')
+        description = description.replace('&eacute;', 'é')
+        description = description.replace('&iacute;', 'í')
+        description = description.replace('&oacute;', 'ó')
+        description = description.replace('&uacute;', 'ú')
+        description = description.replace('&ntilde;', 'ñ')
+        description = description.replace('&euro;', '€')
+        description = description.replace('&sup2;', '²')
+        description = description.replace('&#39;', "'")
+        
+        # Remove extra whitespace and clean up
         description = re.sub(r'\s+', ' ', description)
+        description = re.sub(r'\s*\.\s*\.\.+', '...', description)
+        
+        # Try to extract meaningful content
+        if 'Hello' in description:
+            # Extract from "Hello" to end of property details
+            hello_match = re.search(r'Hello.*?(?:Contact|See all listings|Does this listing)', description, re.DOTALL)
+            if hello_match:
+                description = hello_match.group(0)
+        
+        # Clean up common Idealista footer text
+        description = re.sub(r'Does this listing match.*', '', description, flags=re.IGNORECASE)
+        description = re.sub(r'From Your searches.*', '', description, flags=re.IGNORECASE)
+        description = re.sub(r'With the idealista app.*', '', description, flags=re.IGNORECASE)
+        description = re.sub(r'If you.re no longer interested.*', '', description, flags=re.IGNORECASE)
+        
+        # Final cleanup
+        description = description.strip()
         
         # Limit length
-        if len(description) > 2000:
-            description = description[:2000] + '...'
+        if len(description) > 1000:
+            description = description[:1000] + '...'
         
-        return description.strip()
+        return description if description else "Property listing from Idealista"
