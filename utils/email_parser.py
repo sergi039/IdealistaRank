@@ -124,13 +124,30 @@ class EmailParser:
     
     def _extract_municipality(self, text: str) -> Optional[str]:
         """Extract municipality from text"""
+        # First try to find location from "Land in [location]" pattern
+        # But exclude "your search" patterns
+        land_match = re.search(r'Land in ([^€\n]+?)(?:\s+\d+[,.]?\d*\s*€|\s+See \d+|\n)', text, re.IGNORECASE)
+        if land_match:
+            location = land_match.group(1).strip()
+            # Skip if it contains "your search"
+            if 'your search' not in location.lower():
+                # Clean up the location
+                location = re.sub(r'\s+', ' ', location)
+                # Remove trailing numbers or commas
+                location = re.sub(r',?\s*\d+\s*$', '', location)
+                if location and len(location) > 2:
+                    return location
+        
+        # Try to find municipality from other patterns
         for pattern in self.patterns['municipality']:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
                 municipality = match.group(1).strip()
                 # Clean up municipality name
                 municipality = re.sub(r'\s+', ' ', municipality)
-                return municipality.title()
+                if municipality and len(municipality) > 2:
+                    return municipality.title()
+        
         return None
     
     def _classify_land_type(self, text: str) -> Optional[str]:
