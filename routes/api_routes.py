@@ -14,17 +14,26 @@ def health_check():
 
 @api_bp.route('/ingest/email/run', methods=['POST'])
 def manual_ingestion():
-    """Manually trigger Gmail ingestion"""
+    """Manually trigger email ingestion"""
     try:
-        from services.gmail_service import GmailService
+        from config import Config
         
-        gmail_service = GmailService()
-        processed_count = gmail_service.run_ingestion()
+        if Config.EMAIL_BACKEND == "imap":
+            from services.imap_service import IMAPService
+            service = IMAPService()
+            backend_name = "IMAP"
+        else:
+            from services.gmail_service import GmailService
+            service = GmailService()
+            backend_name = "Gmail API"
+        
+        processed_count = service.run_ingestion()
         
         return jsonify({
             "success": True,
             "processed_count": processed_count,
-            "message": f"Successfully processed {processed_count} new properties"
+            "backend": backend_name,
+            "message": f"Successfully processed {processed_count} new properties via {backend_name}"
         })
         
     except Exception as e:

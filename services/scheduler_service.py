@@ -50,12 +50,18 @@ def init_scheduler(app):
 def run_scheduled_ingestion():
     """Run the scheduled ingestion job"""
     try:
-        logger.info("Starting scheduled Gmail ingestion")
+        from config import Config
         
-        from services.gmail_service import GmailService
-        gmail_service = GmailService()
-        
-        processed_count = gmail_service.run_ingestion()
+        if Config.EMAIL_BACKEND == "imap":
+            logger.info("Starting scheduled IMAP ingestion")
+            from services.imap_service import IMAPService
+            service = IMAPService()
+            processed_count = service.run_ingestion()
+        else:
+            logger.info("Starting scheduled Gmail API ingestion")
+            from services.gmail_service import GmailService
+            service = GmailService()
+            processed_count = service.run_ingestion()
         
         logger.info(f"Scheduled ingestion completed. Processed {processed_count} properties")
         

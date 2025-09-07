@@ -1,8 +1,24 @@
 import os
 
 class Config:
-    # Gmail API
+    # Email backend selection
+    EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "imap").lower()  # 'imap' or 'gmail'
+    
+    # IMAP settings (for Gmail with App Password)
+    IMAP_HOST = os.environ.get("IMAP_HOST", "imap.gmail.com")
+    IMAP_PORT = int(os.environ.get("IMAP_PORT", "993"))
+    IMAP_SSL = os.environ.get("IMAP_SSL", "true").lower() == "true"
+    IMAP_USER = os.environ.get("IMAP_USER", "")
+    IMAP_PASSWORD = os.environ.get("IMAP_PASSWORD", "")
+    IMAP_FOLDER = os.environ.get("IMAP_FOLDER", "Idealista")  # Gmail label mapped as folder
+    IMAP_SEARCH_QUERY = os.environ.get("IMAP_SEARCH_QUERY", "ALL")  # e.g. 'UNSEEN' or date filters
+    MAX_EMAILS_PER_RUN = int(os.environ.get("MAX_EMAILS_PER_RUN", "200"))
+    
+    # Gmail API (legacy, kept for compatibility)
     GMAIL_API_KEY = os.environ.get("GMAIL_API_KEY", "")
+    GMAIL_CLIENT_ID = os.environ.get("GMAIL_CLIENT_ID", "")
+    GMAIL_CLIENT_SECRET = os.environ.get("GMAIL_CLIENT_SECRET", "")
+    GMAIL_REFRESH_TOKEN = os.environ.get("GMAIL_REFRESH_TOKEN", "")
     GMAIL_LABEL = "Idealista"
     
     # Google APIs
