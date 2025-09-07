@@ -150,6 +150,8 @@ class IMAPService:
                     # Custom search query
                     uids = client.search([self.search_query])
                 
+                logger.info(f"Total emails in folder: {len(uids)}")
+                
                 # Filter only new UIDs
                 if self.last_seen_uid > 0:
                     uids = [uid for uid in uids if uid > self.last_seen_uid]

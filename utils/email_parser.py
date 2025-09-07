@@ -26,15 +26,18 @@ class EmailParser:
             ]
         }
         
-        # Land type classification
+        # Land type classification (expanded for Spanish market)
         self.land_type_patterns = {
             'developed': [
                 'urbano', 'desarrollado', 'urban', 'developed',
-                'suelo urbano', 'terreno urbano'
+                'suelo urbano', 'terreno urbano', 'solar urbano',
+                'consolidado', 'edificable'
             ],
             'buildable': [
                 'urbanizable', 'buildable', 'para construir',
-                'suelo urbanizable', 'apto para construcción'
+                'suelo urbanizable', 'apto para construcción',
+                'solar', 'parcela', 'terreno', 'finca',
+                'rustico', 'rústico', 'rural'
             ]
         }
     
@@ -59,14 +62,17 @@ class EmailParser:
                 'legal_status': self._extract_legal_status(full_text)
             }
             
-            # Only return if we have essential data and valid land type
-            if (extracted_data['land_type'] in ['developed', 'buildable'] and
-                (extracted_data['url'] or extracted_data['title'])):
+            # Return if we have essential data (relaxed land type requirement)
+            if extracted_data['url'] or extracted_data['title'] or extracted_data['price']:
+                # Set default land type if not detected
+                if not extracted_data['land_type']:
+                    extracted_data['land_type'] = 'buildable'  # Default to buildable
+                    logger.info(f"No land type detected, defaulting to 'buildable'")
                 
-                logger.info(f"Successfully parsed email: {extracted_data['title'][:50]}...")
+                logger.info(f"Successfully parsed email: {extracted_data['title'][:50] if extracted_data['title'] else 'No title'}...")
                 return extracted_data
             else:
-                logger.warning(f"Skipping email - invalid land type or missing essential data")
+                logger.warning(f"Skipping email - missing essential data (URL, title, or price)")
                 return None
                 
         except Exception as e:
