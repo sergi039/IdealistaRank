@@ -82,13 +82,15 @@ def lands():
                 )
             )
         
-        # Apply sorting
+        # Apply sorting with NULL values last
         if hasattr(Land, sort_by):
             sort_column = getattr(Land, sort_by)
             if sort_order == 'asc':
-                query = query.order_by(sort_column.asc())
+                # For ascending, NULLs go last
+                query = query.order_by(sort_column.asc().nullslast())
             else:
-                query = query.order_by(sort_column.desc())
+                # For descending (default for score), NULLs go last
+                query = query.order_by(sort_column.desc().nullslast())
         
         # Get results
         lands = query.all()
