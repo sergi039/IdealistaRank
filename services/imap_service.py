@@ -189,10 +189,34 @@ class IMAPService:
                         uids = all_uids  # Use all emails from Idealista folder
                         logger.info(f"Found {len(uids)} emails in {idealista_folder} folder")
                     else:
-                        logger.info("Searching for noresponder@idealista.com emails...")
-                        # Try standard FROM search
+                        logger.info("Searching for Idealista emails...")
+                        
+                        # Try multiple search approaches
+                        # 1. Search by FROM
                         uids = client.search(['FROM', 'noresponder@idealista.com'])
-                        logger.info(f"FROM search for noresponder@idealista.com: found {len(uids)} emails")
+                        logger.info(f"FROM noresponder@idealista.com: found {len(uids)} emails")
+                        
+                        # 2. If no results, search by subject
+                        if len(uids) == 0:
+                            logger.info("Trying SUBJECT search...")
+                            uids = client.search(['SUBJECT', 'Cantabria Land'])
+                            logger.info(f"SUBJECT 'Cantabria Land': found {len(uids)} emails")
+                        
+                        # 3. If still no results, search by body text
+                        if len(uids) == 0:
+                            logger.info("Trying BODY search...")
+                            uids = client.search(['BODY', 'idealista.com'])
+                            logger.info(f"BODY 'idealista.com': found {len(uids)} emails")
+                            
+                            # Show first few email details for debugging
+                            if len(uids) > 0:
+                                sample_uids = uids[:3]
+                                messages = client.fetch(sample_uids, ['ENVELOPE'])
+                                for uid, data in messages.items():
+                                    envelope = data.get(b'ENVELOPE')
+                                    if envelope:
+                                        subject = envelope.subject.decode('utf-8', errors='ignore') if envelope.subject else "No subject"
+                                        logger.info(f"Sample email UID {uid}: {subject}")
                 elif self.search_query == "ALL":
                     # Get all UIDs
                     uids = client.search(['ALL'])
