@@ -148,11 +148,11 @@ class IMAPService:
                 
                 # Search for emails
                 if 'gmail' in self.host.lower() and self.folder:
-                    # For Gmail, search emails from idealista.com
-                    # This will find all emails from the Idealista service
-                    from_search = f'from:idealista.com'
+                    # For Gmail, search emails specifically from noresponder@idealista.com
+                    # This is the official Idealista mailing list with property listings
+                    from_search = 'from:noresponder@idealista.com'
                     uids = client.gmail_search(from_search)
-                    logger.info(f"Gmail search from 'idealista.com': found {len(uids)} emails")
+                    logger.info(f"Gmail search from 'noresponder@idealista.com': found {len(uids)} emails")
                 elif self.search_query == "ALL":
                     # Get all UIDs
                     uids = client.search(['ALL'])
