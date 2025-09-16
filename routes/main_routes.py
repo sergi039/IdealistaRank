@@ -1,7 +1,7 @@
 import logging
 from decimal import Decimal
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
-from sqlalchemy import or_, and_
+from sqlalchemy import or_
 from sqlalchemy.orm import defer
 from models import Land, ScoringCriteria
 from app import db
